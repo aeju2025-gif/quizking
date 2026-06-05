@@ -185,7 +185,7 @@
         </div>
         <h3>📋 현재 등록된 문항 리스트</h3>
         <div id="mq-list-zone" style="max-height:300px; overflow-y:auto; border:1px solid #ccc; padding:10px; border-radius:6px; background:#fafafa;"></div>
-        <button onclick="showQuizList(currentSubject)" style="width:100%; margin-top:20px; background-color:#7f8c8d; margin-left:0;">◀ 퀴즈 목록으로 돌아가기</button>
+        <button onclick="showQuizList()" style="width:100%; margin-top:20px; background-color:#7f8c8d; margin-left:0;">◀ 퀴즈 목록으로 돌아가기</button>
     </div>
 </div>
 
@@ -317,26 +317,27 @@ function addSubject() {
     showSubjectMenu();
 }
 
-/* 🛠️ [수정] 수학 과목에서도 퀴즈 리스트 추가를 지원하며 기본 랜덤 2종 상단 배치 */
+/* 🛠️ [버그 수정 및 기능 추가] showQuizList 매개변수 유연화 + 교사 전용 삭제 버튼 탑재 */
 function showQuizList(subject) {
-    currentSubject = subject;
+    if (subject) {
+        currentSubject = subject;
+    }
     changeScreen("screen-quiz-list");
-    document.getElementById("selected-subject-title").innerText = `📚 ${subject} 과목 퀴즈 목록`;
+    document.getElementById("selected-subject-title").innerText = `📚 ${currentSubject} 과목 퀴즈 목록`;
     const zone = document.getElementById("quiz-list-zone"); zone.innerHTML = "";
     
     if(currentRole === 'teacher') document.getElementById("teacher-quiz-admin").classList.remove("hidden");
     else document.getElementById("teacher-quiz-admin").classList.add("hidden");
 
     let list = [];
-    // 수학인 경우 시스템 자동 랜덤 퀴즈 2가지를 항상 상단 리스트에 기본 병합
-    if(subject === "수학") {
+    if(currentSubject === "수학") {
         list.push({ id: "math_auto_01", title: "1. 두 자릿수 × 한 자릿수 (자동 랜덤 주관식)", isAuto: true });
         list.push({ id: "math_auto_02", title: "2. 빈칸 찾기 □ 연산 (자동 랜덤 주관식)", isAuto: true });
     }
 
     const allQuizzes = getQuizzes();
-    const customList = allQuizzes[subject] || [];
-    list = list.concat(customList); // 기본 리스트와 커스텀 생성 리스트 결합
+    const customList = allQuizzes[currentSubject] || [];
+    list = list.concat(customList);
     
     if(list.length === 0) {
         zone.innerHTML = "<p style='text-align:center; color:#999;'>등록된 퀴즈가 없습니다.</p>";
@@ -355,6 +356,8 @@ function showQuizList(subject) {
                 </div>`;
         } else {
             const manageBtn = (currentRole === 'teacher') ? `<button onclick="openManageQuestions('${q.id}')" style="background-color:var(--dark-color);">🛠️ 문항관리</button>` : '';
+            // 🛠️ 교사용 삭제 버튼 컴포넌트 동적 주입 추가
+            const deleteBtn = (currentRole === 'teacher') ? `<button onclick="deleteQuiz('${q.id}')" style="background-color:var(--accent-color);">❌ 삭제</button>` : '';
             const qCount = q.questions ? q.questions.length : 0;
             item.innerHTML = `
                 <div><strong>${q.title}</strong> <span style="font-size:12px; color:#666;">(${qCount}개 문제)</span></div>
@@ -363,10 +366,32 @@ function showQuizList(subject) {
                     <button onclick="openLeaderboard('${q.id}', '${q.title}')" style="background-color:#f39c12;">🏆 랭킹</button>
                     <button onclick="openSuggest('${q.id}')" style="background-color:#9b59b6;">✍️ 출제</button>
                     ${manageBtn}
+                    ${deleteBtn}
                 </div>`;
         }
         zone.appendChild(item);
     });
+}
+
+// 🛠️ [기능 추가] 데이터베이스에서 퀴즈 목록을 완전 제거하는 삭제 함수 모듈
+function deleteQuiz(quizId) {
+    if(!confirm("이 퀴즈 목록을 완전히 삭제하시겠습니까?\n내부 문항 정보 및 랭킹 데이터가 모두 영구 유실됩니다.")) return;
+    
+    const all = getQuizzes();
+    if(all[currentSubject]) {
+        all[currentSubject] = all[currentSubject].filter(q => q.id !== quizId);
+        saveQuizzes(all);
+    }
+    
+    // 명예의 전당 잔여 랭킹 찌꺼기 레코드 동시 청소
+    const board = getLeaderboard();
+    if(board[quizId]) {
+        delete board[quizId];
+        saveLeaderboard(board);
+    }
+    
+    alert("퀴즈 목록이 성공적으로 삭제되었습니다.");
+    showQuizList(currentSubject);
 }
 
 function addQuiz() {
@@ -524,7 +549,6 @@ function deleteRankRecord(index) {
 }
 function closeLeaderboard() { showQuizList(currentSubject); }
 
-/* 🛠️ [추가] 토글 및 입력 가변화 모듈 (학생 출제부) */
 function toggleSuggestOptions() {
     const type = document.getElementById("suggest-q-type").value;
     const box = document.getElementById("suggest-choice-options");
@@ -563,7 +587,6 @@ function submitSuggestion() {
 }
 function closeSuggestion() { showQuizList(currentSubject); }
 
-/* 🛠️ [추가] 토글 및 입력 가변화 모듈 (교사 문항관리부) */
 function toggleMqOptions() {
     const type = document.getElementById("mq-q-type").value;
     const box = document.getElementById("mq-choice-options");
@@ -686,6 +709,7 @@ window.closeChangePasswordScreen = closeChangePasswordScreen;
 window.submitChangePassword = submitChangePassword;
 window.addSubject = addSubject;
 window.showQuizList = showQuizList;
+window.deleteQuiz = deleteQuiz; // 🛠️ 전역 바인딩 추가
 window.startQuiz = startQuiz;
 window.openLeaderboard = openLeaderboard;
 window.openSuggest = openSuggest;
