@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👑 퀴즈킹 (Quiz King) - 온라인 실시간 통합 버전</title>
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #16a085;
+            --accent-color: #e74c3c;
+            --dark-color: #34495e;
+            --bg-color: #f4f6f9;
+        }
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: var(--bg-color); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .app-container { width: 100%; max-width: 650px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .hidden { display: none !important; }
+        h1, h2, h3 { text-align: center; color: #333; margin-top: 10px; }
+        button { background-color: var(--primary-color); color: white; border: none; padding: 10px 18px; font-size: 15px; border-radius: 6px; cursor: pointer; margin: 5px; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        input, select { padding: 10px; font-size: 15px; border: 1px solid #ddd; border-radius: 6px; width: 100%; box-sizing: border-box; margin-bottom: 15px; }
+        .nav-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; font-size: 14px; }
+        
+        .grid-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .list-item { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
+        .admin-box { background: #edf2f7; border: 2px dashed #cbd5e0; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        .admin-box h3 { margin-top: 0; color: var(--dark-color); font-size: 16px; text-align: left; }
+        
+        .quiz-header { display: flex; justify-content: space-between; font-weight: bold; color: #666; margin-bottom: 15px; }
+        #timer { color: var(--accent-color); }
+        .question-box { font-size: 22px; font-weight: bold; margin: 20px 0; text-align: center; background: #f0f4f8; padding: 20px; border-radius: 8px; }
+        .option-btn { display: block; width: 100%; text-align: left; background: #fff; color: #333; border: 2px solid #ddd; padding: 12px; margin-bottom: 8px; border-radius: 6px; font-size: 16px; }
+        .option-btn:hover { border-color: var(--primary-color); background: #f0f4f8; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th { background-color: #f2f2f2; }
+
+        .tab-buttons { display: flex; justify-content: center; margin-bottom: 15px; }
+        .tab-btn { background-color: #7f8c8d; }
+        .tab-btn.active { background-color: var(--secondary-color); }
+
+        .q-mini-card { background: white; border: 1px solid #ddd; padding: 10px; margin-bottom: 8px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+        #loading-screen { text-align: center; padding: 50px 0; font-size: 18px; color: #666; }
+        
+        .short-ans-input { text-align: center; font-size: 20px; padding: 12px; font-weight: bold; border: 2px solid var(--primary-color); }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="loading-screen">⚡ 클라우드 데이터베이스 연결 중...</div>
+
+    <div id="nav-bar" class="nav-bar hidden">
+        <div><strong id="user-display"></strong>님 (<span id="role-display"></span>)</div>
+        <div>
+            <button onclick="openChangePasswordScreen()" style="background-color: #e67e22; padding: 6px 12px; font-size: 13px;">🔒 비번변경</button>
+            <button id="btn-teacher-panel" class="hidden" onclick="showTeacherPanel()" style="background-color: var(--secondary-color); padding: 6px 12px; font-size: 13px;">교사 대시보드</button>
+            <button onclick="logout()" style="background-color: #7f8c8d; padding: 6px 12px; font-size: 13px;">로그아웃</button>
+        </div>
+    </div>
+
+    <div id="screen-login" class="hidden">
+        <h1>👑 퀴즈킹 로그인</h1>
+        <p style="text-align:center; font-size:13px; color:#666;">교사 계정 ID: <strong>선생님</strong> / 비밀번호: <strong>1212</strong></p>
+        <input type="text" id="login-name" placeholder="닉네임(ID)을 입력하세요">
+        <input type="password" id="login-password" placeholder="비밀번호를 입력하세요">
+        <button onclick="login()" style="width: 100%; font-size: 17px; padding: 12px; margin-left:0; margin-right:0;">로그인</button>
+        <button onclick="studentSignUp()" style="width: 100%; font-size: 15px; padding: 10px; background-color: #9b59b6; margin-left:0; margin-right:0; margin-top:10px;">학생 회원가입 (초기비번: 0000)</button>
+    </div>
+
+    <div id="screen-change-password" class="hidden">
+        <h2>🔒 비밀번호 변경</h2>
+        <input type="password" id="pw-current" placeholder="현재 비밀번호">
+        <input type="password" id="pw-new" placeholder="새로운 비밀번호">
+        <input type="password" id="pw-confirm" placeholder="새로운 비밀번호 확인">
+        <button onclick="submitChangePassword()" style="width:100%; padding:12px; background-color: var(--secondary-color);">변경 확정</button>
+        <button onclick="closeChangePasswordScreen()" style="width:100%; background-color:#7f8c8d;">취소</button>
+    </div>
+
+    <div id="screen-subjects" class="hidden">
+        <h2>📚 과목을 선택하세요</h2>
+        <div class="grid-menu" id="subject-menu-zone"></div>
+        
+        <div id="teacher-subject-admin" class="admin-box hidden">
+            <h3>🛠️ [교사 메뉴] 새로운 과목 개설</h3>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="new-subject-name" placeholder="예: 영어, 한국사" style="margin-bottom:0;">
+                <button onclick="addSubject()" style="white-space:nowrap; margin:0; background-color:var(--dark-color);">과목 추가</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-quiz-list" class="hidden">
+        <h2 id="selected-subject-title">과목 퀴즈 목록</h2>
+        <div id="quiz-list-zone"></div>
+        
+        <div id="teacher-quiz-admin" class="admin-box hidden">
+            <h3>🛠️ [교사 메뉴] 이 과목에 새 퀴즈 만들기</h3>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="new-quiz-title" placeholder="예: 단원 평가 1호" style="margin-bottom:0;">
+                <button onclick="addQuiz()" style="white-space:nowrap; margin:0; background-color:var(--dark-color);">퀴즈 추가</button>
+            </div>
+        </div>
+        <button onclick="goBackToSubjects()" style="background-color:#7f8c8d; width:100%; margin-top:20px; margin-left:0;">◀ 과목 목록으로 이동</button>
+    </div>
+
+    <div id="screen-quiz-play" class="hidden">
+        <div class="quiz-header">
+            <span id="quiz-progress">문제 1 / 10</span>
+            <span id="timer">시간: 0초</span>
+        </div>
+        <div class="question-box" id="question-text">문제가 여기에 표시됩니다.</div>
+        <div id="area-choice"></div>
+    </div>
+
+    <div id="screen-quiz-result" class="hidden">
+        <h2>🎉 퀴즈 종료!</h2>
+        <div style="text-align: center; margin: 20px 0; font-size: 18px; line-height: 1.8;">
+            <p>맞춘 문제: <strong id="res-correct">0</strong> / 10 문제</p>
+            <p>걸린 시간: <strong id="res-time">0</strong>초</p>
+            <p style="font-size: 24px; color: var(--accent-color);">최종 점수: <strong id="res-score">0</strong>점</p>
+        </div>
+        <button onclick="goBackToSubjects()" style="width: 100%; padding: 12px; font-size: 16px; margin-left:0;">메인 과목메뉴로 이동</button>
+    </div>
+
+    <div id="screen-leaderboard" class="hidden">
+        <h2 id="leaderboard-title">🏆 명예의 전당</h2>
+        <table>
+            <thead id="leaderboard-thead"></thead>
+            <tbody id="leaderboard-tbody"></tbody>
+        </table>
+        <button onclick="closeLeaderboard()" style="width:100%; margin-top:20px; background-color:#7f8c8d; margin-left:0;">닫기</button>
+    </div>
+
+    <div id="screen-suggest-question" class="hidden">
+        <h2>✍️ 문제 출제 요청</h2>
+        <select id="suggest-q-type" onchange="toggleSuggestOptions()">
+            <option value="choice">객관식 문제</option>
+            <option value="short">주관식 문제</option>
+        </select>
+        <input type="text" id="suggest-q-text" placeholder="문제를 입력하세요">
+        <input type="text" id="suggest-ans" placeholder="정답을 입력하세요">
+        <div id="suggest-choice-options">
+            <input type="text" id="suggest-opt2" placeholder="오답 보기 2">
+            <input type="text" id="suggest-opt3" placeholder="오답 보기 3">
+            <input type="text" id="suggest-opt4" placeholder="오답 보기 4">
+        </div>
+        <button onclick="submitSuggestion()" style="width:100%; padding:12px; background-color:var(--secondary-color); margin-left:0;">출제 신청하기</button>
+        <button onclick="closeSuggestion()" style="width:100%; background-color:#7f8c8d; margin-left:0;">취소</button>
+    </div>
+
+    <div id="screen-teacher" class="hidden">
+        <h2>📋 교사 관리 대시보드</h2>
+        <div class="tab-buttons">
+            <button id="tab-btn-approve" class="tab-btn active" onclick="switchTeacherTab('approve')">문제 승인 대기함</button>
+            <button id="tab-btn-users" class="tab-btn" onclick="switchTeacherTab('users')">👤 학생 계정 관리</button>
+        </div>
+        <div id="teacher-tab-approve"><div id="teacher-pending-list"></div></div>
+        <div id="teacher-tab-users" class="hidden">
+            <table>
+                <thead><tr><th>학생 닉네임</th><th>권한</th><th>비밀번호 관리</th></tr></thead>
+                <tbody id="teacher-user-tbody"></tbody>
+            </table>
+        </div>
+        <button onclick="goBackToSubjects()" style="width:100%; margin-top:20px; background-color:#7f8c8d; margin-left:0;">메인 화면으로 가기</button>
+    </div>
+
+    <div id="screen-manage-questions" class="hidden">
+        <h2 id="mq-title">🎯 퀴즈 문항 관리</h2>
+        <div class="admin-box" style="margin-bottom:20px; background:#e2e8f0;">
+            <h3>➕ 교사 권한으로 문제 직접 추가</h3>
+            <select id="mq-q-type" onchange="toggleMqOptions()">
+                <option value="choice">객관식 문제</option>
+                <option value="short">주관식 문제</option>
+            </select>
+            <input type="text" id="mq-q-text" placeholder="문제 내용을 입력하세요">
+            <input type="text" id="mq-ans" placeholder="정답을 입력하세요">
+            <div id="mq-choice-options">
+                <input type="text" id="mq-opt2" placeholder="오답 보기 2">
+                <input type="text" id="mq-opt3" placeholder="오답 보기 3">
+                <input type="text" id="mq-opt4" placeholder="오답 보기 4">
+            </div>
+            <button onclick="mqDirectAddQuestion()" style="width:100%; background-color:var(--dark-color); margin-left:0;">즉시 추가하기</button>
+        </div>
+        <h3>📋 현재 등록된 문항 리스트</h3>
+        <div id="mq-list-zone" style="max-height:300px; overflow-y:auto; border:1px solid #ccc; padding:10px; border-radius:6px; background:#fafafa;"></div>
+        <button onclick="showQuizList(currentSubject)" style="width:100%; margin-top:20px; background-color:#7f8c8d; margin-left:0;">◀ 퀴즈 목록으로 돌아가기</button>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAuekzsk-b0jqrQ6ZoRfa9luVZ5echBFM4",
+  authDomain: "quizking-54ecb.firebaseapp.com",
+  databaseURL: "https://quizking-54ecb-default-rtdb.firebaseio.com",
+  projectId: "quizking-54ecb",
+  storageBucket: "quizking-54ecb.firebasestorage.app",
+  messagingSenderId: "1058455519322",
+  appId: "1:1058455519322:web:eab65887db0cfcf0929863",
+  measurementId: "G-39Z1VH6T3J"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const analytics = getAnalytics(app);
+
+let globalData = {
+    subjects: ["수학", "과학", "사회", "국어"],
+    quizzes: {},
+    users: { "선생님": { role: "teacher", password: "1212" }, "학생샘플": { role: "student", password: "0000" } },
+    leaderboard: {},
+    pending: []
+};
+
+onValue(ref(db), (snapshot) => {
+    if (!snapshot.exists()) {
+        set(ref(db), globalData);
+    } else {
+        globalData = snapshot.val();
+    }
+    document.getElementById("loading-screen").classList.add("hidden");
+    if(currentUser === "") {
+        document.getElementById("screen-login").classList.remove("hidden");
+    }
+});
+
+function getSubjects() { return globalData.subjects || []; }
+function saveSubjects(data) { globalData.subjects = data; set(ref(db, 'subjects'), data); }
+function getQuizzes() { return globalData.quizzes || {}; }
+function saveQuizzes(data) { globalData.quizzes = data; set(ref(db, 'quizzes'), data); }
+function getUsers() { return globalData.users || {}; }
+function saveUsers(data) { globalData.users = data; set(ref(db, 'users'), data); }
+function getLeaderboard() { return globalData.leaderboard || {}; }
+function saveLeaderboard(data) { globalData.leaderboard = data; set(ref(db, 'leaderboard'), data); }
+function getPending() { return globalData.pending || []; }
+function savePending(data) { globalData.pending = data; set(ref(db, 'pending'), data); }
+
+let currentUser = "";
+let currentRole = "";
+let currentSubject = "";
+let currentQuizId = "";
+let currentQuizTitle = "";
+let quizQuestions = [];
+let currentQIdx = 0;
+let correctCount = 0;
+let timerVal = 0;
+let timerInterval = null;
+
+function changeScreen(screenId) {
+    ["screen-login", "screen-change-password", "screen-subjects", "screen-quiz-list", "screen-quiz-play", "screen-quiz-result", "screen-leaderboard", "screen-suggest-question", "screen-teacher", "screen-manage-questions"]
+    .forEach(id => document.getElementById(id).classList.add("hidden"));
+    document.getElementById(screenId).classList.remove("hidden");
+}
+
+function login() {
+    const name = document.getElementById("login-name").value.trim();
+    const pw = document.getElementById("login-password").value;
+    if(!name || !pw) return alert("아이디와 비밀번호를 입력하세요.");
+    const users = getUsers();
+    if(!users[name] || users[name].password !== pw) return alert("계정 정보가 일치하지 않습니다.");
+    
+    currentUser = name; currentRole = users[name].role;
+    document.getElementById("user-display").innerText = currentUser;
+    document.getElementById("role-display").innerText = currentRole === "teacher" ? "교사" : "학생";
+    document.getElementById("nav-bar").classList.remove("hidden");
+    
+    if(currentRole === "teacher") {
+        document.getElementById("btn-teacher-panel").classList.remove("hidden");
+        document.getElementById("teacher-subject-admin").classList.remove("hidden");
+    } else {
+        document.getElementById("btn-teacher-panel").classList.add("hidden");
+        document.getElementById("teacher-subject-admin").classList.add("hidden");
+    }
+    showSubjectMenu();
+}
+
+function studentSignUp() {
+    const name = prompt("회원가입할 학생의 닉네임(ID)을 입력하세요:");
+    if(!name || !name.trim()) return;
+    const users = getUsers();
+    if(users[name.trim()]) return alert("이미 존재하는 닉네임입니다.");
+    users[name.trim()] = { role: "student", password: "0000" };
+    saveUsers(users);
+    alert("회원가입 완료! 초기 비밀번호는 0000입니다.");
+}
+
+function logout() { clearInterval(timerInterval); currentUser = ""; currentRole = ""; document.getElementById("nav-bar").classList.add("hidden"); changeScreen("screen-login"); }
+function openChangePasswordScreen() { changeScreen("screen-change-password"); }
+function closeChangePasswordScreen() { showSubjectMenu(); }
+function submitChangePassword() {
+    const curPw = document.getElementById("pw-current").value;
+    const newPw = document.getElementById("pw-new").value;
+    const users = getUsers();
+    if(users[currentUser].password !== curPw) return alert("현재 비밀번호 불일치");
+    users[currentUser].password = newPw; saveUsers(users);
+    alert("변경 완료"); showSubjectMenu();
+}
+
+function showSubjectMenu() {
+    changeScreen("screen-subjects");
+    const zone = document.getElementById("subject-menu-zone"); zone.innerHTML = "";
+    getSubjects().forEach(sub => {
+        const btn = document.createElement("button");
+        btn.innerText = sub; btn.style.padding = "20px"; btn.style.fontSize = "18px";
+        btn.onclick = () => showQuizList(sub); zone.appendChild(btn);
+    });
+}
+function addSubject() {
+    const name = document.getElementById("new-subject-name").value.trim();
+    if(!name) return;
+    const subs = getSubjects(); subs.push(name); saveSubjects(subs);
+    showSubjectMenu();
+}
+
+/* 🛠️ [수정] 수학 과목에서도 퀴즈 리스트 추가를 지원하며 기본 랜덤 2종 상단 배치 */
+function showQuizList(subject) {
+    currentSubject = subject;
+    changeScreen("screen-quiz-list");
+    document.getElementById("selected-subject-title").innerText = `📚 ${subject} 과목 퀴즈 목록`;
+    const zone = document.getElementById("quiz-list-zone"); zone.innerHTML = "";
+    
+    if(currentRole === 'teacher') document.getElementById("teacher-quiz-admin").classList.remove("hidden");
+    else document.getElementById("teacher-quiz-admin").classList.add("hidden");
+
+    let list = [];
+    // 수학인 경우 시스템 자동 랜덤 퀴즈 2가지를 항상 상단 리스트에 기본 병합
+    if(subject === "수학") {
+        list.push({ id: "math_auto_01", title: "1. 두 자릿수 × 한 자릿수 (자동 랜덤 주관식)", isAuto: true });
+        list.push({ id: "math_auto_02", title: "2. 빈칸 찾기 □ 연산 (자동 랜덤 주관식)", isAuto: true });
+    }
+
+    const allQuizzes = getQuizzes();
+    const customList = allQuizzes[subject] || [];
+    list = list.concat(customList); // 기본 리스트와 커스텀 생성 리스트 결합
+    
+    if(list.length === 0) {
+        zone.innerHTML = "<p style='text-align:center; color:#999;'>등록된 퀴즈가 없습니다.</p>";
+        return;
+    }
+    
+    list.forEach(q => {
+        const item = document.createElement("div"); item.className = "list-item";
+        
+        if(q.isAuto) {
+            item.innerHTML = `
+                <div><strong>${q.title}</strong> <span style="color:var(--secondary-color); font-size:12px;">[실시간 무한 랜덤]</span></div>
+                <div>
+                    <button onclick="startQuiz('${q.id}', '${q.title}')">시작</button>
+                    <button onclick="openLeaderboard('${q.id}', '${q.title}')" style="background-color:#f39c12;">🏆 랭킹</button>
+                </div>`;
+        } else {
+            const manageBtn = (currentRole === 'teacher') ? `<button onclick="openManageQuestions('${q.id}')" style="background-color:var(--dark-color);">🛠️ 문항관리</button>` : '';
+            const qCount = q.questions ? q.questions.length : 0;
+            item.innerHTML = `
+                <div><strong>${q.title}</strong> <span style="font-size:12px; color:#666;">(${qCount}개 문제)</span></div>
+                <div>
+                    <button onclick="startQuiz('${q.id}', '${q.title}')" ${(qCount < 10) ? 'disabled style="background:#ccc;"' : ''}>시작</button>
+                    <button onclick="openLeaderboard('${q.id}', '${q.title}')" style="background-color:#f39c12;">🏆 랭킹</button>
+                    <button onclick="openSuggest('${q.id}')" style="background-color:#9b59b6;">✍️ 출제</button>
+                    ${manageBtn}
+                </div>`;
+        }
+        zone.appendChild(item);
+    });
+}
+
+function addQuiz() {
+    const title = document.getElementById("new-quiz-title").value.trim();
+    if(!title) return;
+    const all = getQuizzes(); if(!all[currentSubject]) all[currentSubject] = [];
+    all[currentSubject].push({ id: "quiz_" + Date.now(), title: title, questions: [] });
+    saveQuizzes(all); showQuizList(currentSubject);
+    document.getElementById("new-quiz-title").value = "";
+}
+function goBackToSubjects() { showSubjectMenu(); }
+
+function generateMathQuestions(typeId) {
+    let tempArray = [];
+    for(let i=0; i<10; i++) {
+        let num2Digit;
+        do {
+            num2Digit = Math.floor(Math.random() * 89) + 11; 
+        } while(num2Digit % 10 === 0);
+        
+        let single = Math.floor(Math.random() * 8) + 2;
+        let ans = num2Digit * single;
+        
+        if(typeId === "math_auto_01") {
+            tempArray.push({ type: "short", q: `${num2Digit} × ${single} = ?`, ans: String(ans) });
+        } else {
+            tempArray.push({ type: "short", q: `${num2Digit} × □ = ${ans} 에서 □는?`, ans: String(single) });
+        }
+    }
+    return tempArray;
+}
+
+function startQuiz(quizId, quizTitle) {
+    currentQuizId = quizId; currentQuizTitle = quizTitle;
+    
+    if(quizId.startsWith("math_auto_")) {
+        quizQuestions = generateMathQuestions(quizId);
+    } else {
+        const allQuizzes = getQuizzes();
+        const quiz = allQuizzes[currentSubject].find(q => q.id === quizId);
+        const shuffled = [...quiz.questions].sort(() => 0.5 - Math.random());
+        quizQuestions = shuffled.slice(0, 10);
+    }
+    
+    currentQIdx = 0; correctCount = 0; timerVal = 0;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => { timerVal++; document.getElementById("timer").innerText = `시간: ${timerVal}초`; }, 1000);
+    changeScreen("screen-quiz-play"); loadQuestion();
+}
+
+function loadQuestion() {
+    document.getElementById("quiz-progress").innerText = `문제 ${currentQIdx + 1} / 10`;
+    const qData = quizQuestions[currentQIdx];
+    document.getElementById("question-text").innerText = qData.q;
+    
+    const choiceZone = document.getElementById("area-choice"); choiceZone.innerHTML = "";
+    
+    if (qData.type === "short") {
+        const input = document.createElement("input");
+        input.type = "text"; 
+        input.id = "short-answer-input";
+        input.className = "short-ans-input";
+        input.placeholder = "여기에 정답 입력";
+        
+        const submitBtn = document.createElement("button");
+        submitBtn.innerText = "정답 제출하기";
+        submitBtn.style.width = "100%";
+        submitBtn.style.padding = "12px";
+        submitBtn.style.fontSize = "16px";
+        submitBtn.style.marginTop = "5px";
+        submitBtn.onclick = () => {
+            const userAns = document.getElementById("short-answer-input").value.trim();
+            if(!userAns) return alert("정답을 입력해 주세요!");
+            submitAnswer(userAns);
+        };
+        
+        input.onkeyup = (e) => {
+            if (e.key === "Enter") {
+                const userAns = input.value.trim();
+                if(!userAns) return alert("정답을 입력해 주세요!");
+                submitAnswer(userAns);
+            }
+        };
+        
+        choiceZone.appendChild(input);
+        choiceZone.appendChild(submitBtn);
+        input.focus();
+    } else {
+        const opts = [...qData.options].sort(() => 0.5 - Math.random());
+        opts.forEach(opt => {
+            const btn = document.createElement("button"); btn.className = "option-btn"; btn.innerText = opt;
+            btn.onclick = () => submitAnswer(opt); choiceZone.appendChild(btn);
+        });
+    }
+}
+
+function submitAnswer(userAns) {
+    if(userAns.trim().toLowerCase() === quizQuestions[currentQIdx].ans.trim().toLowerCase()) correctCount++;
+    currentQIdx++;
+    if(currentQIdx < 10) loadQuestion();
+    else endQuiz();
+}
+
+function endQuiz() {
+    clearInterval(timerInterval); changeScreen("screen-quiz-result");
+    let score = (correctCount * 10) - timerVal; if(score < 0) score = 0;
+    document.getElementById("res-correct").innerText = correctCount;
+    document.getElementById("res-time").innerText = timerVal;
+    document.getElementById("res-score").innerText = score;
+    
+    const board = getLeaderboard(); if(!board[currentQuizId]) board[currentQuizId] = [];
+    const idx = board[currentQuizId].findIndex(r => r.name === currentUser);
+    if(idx > -1) { if(board[currentQuizId][idx].score < score) board[currentQuizId][idx] = { name: currentUser, score: score, time: timerVal }; }
+    else board[currentQuizId].push({ name: currentUser, score: score, time: timerVal });
+    board[currentQuizId].sort((a,b) => b.score - a.score || a.time - b.time);
+    saveLeaderboard(board);
+}
+
+function openLeaderboard(quizId, quizTitle) {
+    currentQuizId = quizId; currentQuizTitle = quizTitle;
+    changeScreen("screen-leaderboard");
+    document.getElementById("leaderboard-title").innerText = `🏆 [${quizTitle}] 명예의 전당`;
+    
+    const thead = document.getElementById("leaderboard-thead");
+    const thManage = (currentRole === 'teacher') ? '<th>관리</th>' : '';
+    thead.innerHTML = `<tr><th>순위</th><th>닉네임</th><th>점수</th><th>소요시간</th>${thManage}</tr>`;
+    
+    const board = getLeaderboard(); const list = board[quizId] || [];
+    const tbody = document.getElementById("leaderboard-tbody"); tbody.innerHTML = "";
+    
+    if(list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${currentRole === 'teacher' ? 5 : 4}" style="color:#999;">기록이 없습니다.</td></tr>`;
+        return;
+    }
+    
+    list.forEach((r, idx) => {
+        const tr = document.createElement("tr");
+        const tdDelete = (currentRole === 'teacher') 
+            ? `<td><button onclick="deleteRankRecord(${idx})" style="background-color:var(--accent-color); padding:3px 8px; font-size:12px; margin:0;">❌ 삭제</button></td>` 
+            : '';
+        tr.innerHTML = `<td><strong>${idx+1}등</strong></td><td>${r.name}</td><td>${r.score}점</td><td>${r.time}초</td>${tdDelete}`;
+        tbody.appendChild(tr);
+    });
+}
+
+function deleteRankRecord(index) {
+    if(confirm("이 학생의 랭킹 기록을 지우시겠습니까? 삭제 시 복구할 수 없습니다.")) {
+        const board = getLeaderboard();
+        if(board[currentQuizId]) {
+            board[currentQuizId].splice(index, 1);
+            saveLeaderboard(board);
+            openLeaderboard(currentQuizId, currentQuizTitle);
+        }
+    }
+}
+function closeLeaderboard() { showQuizList(currentSubject); }
+
+/* 🛠️ [추가] 토글 및 입력 가변화 모듈 (학생 출제부) */
+function toggleSuggestOptions() {
+    const type = document.getElementById("suggest-q-type").value;
+    const box = document.getElementById("suggest-choice-options");
+    if(type === "short") box.classList.add("hidden");
+    else box.classList.remove("hidden");
+}
+
+function openSuggest(quizId) {
+    currentQuizId = quizId; changeScreen("screen-suggest-question");
+    document.getElementById("suggest-q-type").value = "choice";
+    document.getElementById("suggest-q-text").value = "";
+    document.getElementById("suggest-ans").value = "";
+    document.getElementById("suggest-opt2").value = "";
+    document.getElementById("suggest-opt3").value = "";
+    document.getElementById("suggest-opt4").value = "";
+    toggleSuggestOptions();
+}
+
+function submitSuggestion() {
+    const type = document.getElementById("suggest-q-type").value;
+    const qText = document.getElementById("suggest-q-text").value.trim(); 
+    const ans = document.getElementById("suggest-ans").value.trim();
+    if(!qText || !ans) return alert("문제와 정답을 모두 입력해주세요.");
+    
+    let newQ = { quizId: currentQuizId, subject: currentSubject, type: type, q: qText, sender: currentUser, ans: ans };
+    if(type === 'choice') {
+        const o2 = document.getElementById("suggest-opt2").value.trim();
+        const o3 = document.getElementById("suggest-opt3").value.trim();
+        const o4 = document.getElementById("suggest-opt4").value.trim();
+        if(!o2 || !o3 || !o4) return alert("오답 보기를 모두 채워주세요.");
+        newQ.options = [ans, o2, o3, o4];
+    }
+    
+    const pending = getPending(); pending.push(newQ); savePending(pending);
+    alert("제출 완료 (교사 승인 후 반영됩니다)"); showQuizList(currentSubject);
+}
+function closeSuggestion() { showQuizList(currentSubject); }
+
+/* 🛠️ [추가] 토글 및 입력 가변화 모듈 (교사 문항관리부) */
+function toggleMqOptions() {
+    const type = document.getElementById("mq-q-type").value;
+    const box = document.getElementById("mq-choice-options");
+    if(type === "short") box.classList.add("hidden");
+    else box.classList.remove("hidden");
+}
+
+function openManageQuestions(quizId) {
+    currentQuizId = quizId; changeScreen("screen-manage-questions");
+    const all = getQuizzes(); const quiz = all[currentSubject].find(q => q.id === quizId);
+    document.getElementById("mq-title").innerText = `🎯 [${quiz.title}] 문항 제어판`;
+    document.getElementById("mq-q-type").value = "choice";
+    document.getElementById("mq-q-text").value = "";
+    document.getElementById("mq-ans").value = "";
+    document.getElementById("mq-opt2").value = "";
+    document.getElementById("mq-opt3").value = "";
+    document.getElementById("mq-opt4").value = "";
+    toggleMqOptions();
+    renderMqQuestionsList();
+}
+
+function renderMqQuestionsList() {
+    const zone = document.getElementById("mq-list-zone"); zone.innerHTML = "";
+    const all = getQuizzes(); const quiz = all[currentSubject].find(q => q.id === currentQuizId);
+    if(quiz.questions) {
+        quiz.questions.forEach((q, idx) => {
+            const card = document.createElement("div"); card.className = "q-mini-card";
+            const badge = q.type === 'short' ? '<span style="color:var(--secondary-color);">[주관식]</span>' : '<span style="color:var(--primary-color);">[객관식]</span>';
+            card.innerHTML = `<div><strong>${idx+1}. ${badge} Q. ${q.q}</strong><br><small style="color:red;">정답: ${q.ans}</small></div>
+                              <button onclick="mqDeleteQuestion(${idx})" style="background-color:var(--accent-color); padding:4px;">삭제</button>`;
+            zone.appendChild(card);
+        });
+    }
+}
+
+function mqDirectAddQuestion() {
+    const type = document.getElementById("mq-q-type").value;
+    const q = document.getElementById("mq-q-text").value.trim();
+    const ans = document.getElementById("mq-ans").value.trim();
+    if(!q || !ans) return alert("문제와 정답을 필수로 적어주세요.");
+    
+    const all = getQuizzes(); const quiz = all[currentSubject].find(q => q.id === currentQuizId);
+    if(!quiz.questions) quiz.questions = [];
+    
+    if(type === 'choice') {
+        const o2 = document.getElementById("mq-opt2").value.trim();
+        const o3 = document.getElementById("mq-opt3").value.trim();
+        const o4 = document.getElementById("mq-opt4").value.trim();
+        if(!o2 || !o3 || !o4) return alert("객관식용 오답 보기를 모두 채워주세요.");
+        quiz.questions.push({ type: 'choice', q: q, options: [ans, o2, o3, o4], ans: ans });
+    } else {
+        quiz.questions.push({ type: 'short', q: q, ans: ans });
+    }
+    
+    saveQuizzes(all); renderMqQuestionsList();
+    document.getElementById("mq-q-text").value = "";
+    document.getElementById("mq-ans").value = "";
+    document.getElementById("mq-opt2").value = "";
+    document.getElementById("mq-opt3").value = "";
+    document.getElementById("mq-opt4").value = "";
+}
+
+function mqDeleteQuestion(idx) {
+    const all = getQuizzes(); const quiz = all[currentSubject].find(q => q.id === currentQuizId);
+    quiz.questions.splice(idx,1); saveQuizzes(all); renderMqQuestionsList();
+}
+
+function showTeacherPanel() { changeScreen("screen-teacher"); switchTeacherTab('approve'); }
+function switchTeacherTab(name) {
+    if(name === 'approve') {
+        document.getElementById("teacher-tab-approve").classList.remove("hidden");
+        document.getElementById("teacher-tab-users").classList.add("hidden");
+        renderTeacherApproveList();
+    } else {
+        document.getElementById("teacher-tab-approve").classList.add("hidden");
+        document.getElementById("teacher-tab-users").classList.remove("hidden");
+        renderStudentUserList();
+    }
+}
+function renderTeacherApproveList() {
+    const zone = document.getElementById("teacher-pending-list"); zone.innerHTML = "";
+    getPending().forEach((item, idx) => {
+        const card = document.createElement("div"); card.className = "list-item";
+        const badge = item.type === 'short' ? '<span style="color:var(--secondary-color);">[주관식]</span>' : '<span style="color:var(--primary-color);">[객관식]</span>';
+        card.innerHTML = `<div><strong>${badge} ${item.q}</strong><br><small>정답: ${item.ans} (출제: ${item.sender})</small></div>
+            <div><button onclick="approveQuestion(${idx})" style="background:var(--secondary-color);">승인</button></div>`;
+        zone.appendChild(card);
+    });
+}
+function approveQuestion(index) {
+    const pending = getPending(); const target = pending.splice(index, 1)[0];
+    const all = getQuizzes(); const quiz = all[target.subject].find(q => q.id === target.quizId);
+    if(!quiz.questions) quiz.questions = [];
+    
+    if(target.type === 'choice') {
+        quiz.questions.push({ type: target.type, q: target.q, options: target.options, ans: target.ans });
+    } else {
+        quiz.questions.push({ type: target.type, q: target.q, ans: target.ans });
+    }
+    saveQuizzes(all); savePending(pending); renderTeacherApproveList();
+}
+function renderStudentUserList() {
+    const tbody = document.getElementById("teacher-user-tbody"); tbody.innerHTML = "";
+    const users = getUsers();
+    for (let u in users) {
+        if(users[u].role === 'student') {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${u}</td><td>학생</td><td><button onclick="resetStudentPassword('${u}')" style="background:var(--accent-color); margin:0;">초기화</button></td>`;
+            tbody.appendChild(tr);
+        }
+    }
+}
+function resetStudentPassword(name) { const users = getUsers(); users[name].password = "0000"; saveUsers(users); renderStudentUserList(); }
+
+window.login = login;
+window.studentSignUp = studentSignUp;
+window.logout = logout;
+window.openChangePasswordScreen = openChangePasswordScreen;
+window.closeChangePasswordScreen = closeChangePasswordScreen;
+window.submitChangePassword = submitChangePassword;
+window.addSubject = addSubject;
+window.showQuizList = showQuizList;
+window.startQuiz = startQuiz;
+window.openLeaderboard = openLeaderboard;
+window.openSuggest = openSuggest;
+window.openManageQuestions = openManageQuestions;
+window.addQuiz = addQuiz;
+window.goBackToSubjects = goBackToSubjects;
+window.submitAnswer = submitAnswer;
+window.deleteRankRecord = deleteRankRecord;
+window.closeLeaderboard = closeLeaderboard;
+window.toggleSuggestOptions = toggleSuggestOptions;
+window.submitSuggestion = submitSuggestion;
+window.closeSuggestion = closeSuggestion;
+window.toggleMqOptions = toggleMqOptions;
+window.mqDirectAddQuestion = mqDirectAddQuestion;
+window.mqDeleteQuestion = mqDeleteQuestion;
+window.showTeacherPanel = showTeacherPanel;
+window.switchTeacherTab = switchTeacherTab;
+window.approveQuestion = approveQuestion;
+window.resetStudentPassword = resetStudentPassword;
+</script>
+</body>
+</html>
